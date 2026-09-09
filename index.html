@@ -13,7 +13,7 @@
     color:#000000;
     font-family: "Times New Roman", Times, serif;
   }
-  .wrap{max-width:760px;margin:0 auto;}
+  .wrap{max-width:820px;margin:0 auto;}
 
   h1{
     font-size:19px;
@@ -33,6 +33,9 @@
     text-align:center;
     font-size:13px;
     margin-bottom:18px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
   }
 
   table{
@@ -52,7 +55,8 @@
   td.num, th.num{text-align:center; width:34px;}
   td.year, th.year{text-align:center; width:70px;}
   td.rating, th.rating{text-align:center; width:70px;}
-  td.done, th.done{text-align:center; width:60px;}
+  td.owned, th.owned{text-align:center; width:90px;}
+  td.done, th.done{text-align:center; width:70px;}
 
   tr.read td{color:#888;}
   tr.read td.title{text-decoration:line-through;}
@@ -72,6 +76,7 @@
     top:-3px;
     font-size:14px;
     font-weight:bold;
+    color: #000;
   }
 
   .controls{
@@ -110,7 +115,10 @@
   <h1>İTHAKİ BİLİMKURGU KLASİKLERİ</h1>
   <h2>Basım Yılına Göre Sıralı Liste (Goodreads Puanları Dahil)</h2>
 
-  <div class="progress" id="progressText">0 / 93 kitap okundu</div>
+  <div class="progress">
+    <span id="ownedText">0 / 93 kitaplıkta</span>
+    <span id="progressText">0 / 93 okundu</span>
+  </div>
 
   <div class="controls">
     <input type="text" id="searchBox" placeholder="Kitap adına göre ara…">
@@ -123,8 +131,9 @@
         <th class="num">Sıra</th>
         <th>Kitap Adı</th>
         <th class="year">Basım Yılı</th>
-        <th class="rating">Goodreads Puanı</th>
-        <th class="done">Bitti mi?</th>
+        <th class="rating">Puan</th>
+        <th class="owned">Kitaplığımda</th>
+        <th class="done">Okudum</th>
       </tr>
     </thead>
     <tbody id="tableBody"></tbody>
@@ -132,12 +141,10 @@
 </div>
 
 <script type="module">
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// Firebase modüllerini CDN üzerinden içeri aktarıyoruz
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCBiYdYeYnbqqeH8WR2Hd6TXQ4uvr4sxeE",
   authDomain: "kitapliste-db151.firebaseapp.com",
@@ -147,11 +154,11 @@ const firebaseConfig = {
   appId: "1:590932155439:web:ef7039a493ddc9130bfada"
 };
 
-// Initialize Firebase
+// Firebase'i başlat
 const app = initializeApp(firebaseConfig);
-</script>
+const db = getFirestore(app);
 
-<script>
+// Kitap verileri
 const BOOKS = [
 ["Cesur Yeni Dünya",2015,3.99],["Çocukluğun Sonu",2015,4.10],["Dune",2015,4.27],
 ["Kıyamete Bir Milyar Yıl",2015,3.98],["Maymunlar Gezegeni",2015,3.98],
@@ -189,28 +196,47 @@ const BOOKS = [
 ].map((b,i)=>({sira:i+1, id:'b'+String(i+1).padStart(3,'0'), title:b[0], year:b[1], rating:b[2]}));
 
 let readSet = new Set();
+let ownedSet = new Set();
 let hideRead = false;
 let query = "";
 
+// Veritabanında verilerin tutulacağı belge referansı
+const docRef = doc(db, "kullaniciVerileri", "ithakiListesi");
+
 async function loadState(){
   try{
-    const res = await window.storage.get('ithaki-read-set', false);
-    if(res && res.value){
-      readSet = new Set(JSON.parse(res.value));
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if(data.readSet) readSet = new Set(data.readSet);
+      if(data.ownedSet) ownedSet = new Set(data.ownedSet);
     }
-  }catch(e){ /* henüz kayıt yok */ }
+  }catch(e){ 
+    console.error("Veri yüklenirken hata oluştu: ", e);
+  }
   render();
 }
 
 async function saveState(){
   try{
-    await window.storage.set('ithaki-read-set', JSON.stringify([...readSet]), false);
-  }catch(e){ console.error('Kayıt hatası:', e); }
+    await setDoc(docRef, {
+      readSet: Array.from(readSet),
+      ownedSet: Array.from(ownedSet)
+    });
+  }catch(e){ 
+    console.error('Veri kaydedilirken hata oluştu:', e); 
+  }
 }
 
-function toggleBook(id){
-  if(readSet.has(id)) readSet.delete(id);
-  else readSet.add(id);
+function toggleBook(id, type){
+  if(type === 'read'){
+    if(readSet.has(id)) readSet.delete(id);
+    else readSet.add(id);
+  } else if(type === 'owned'){
+    if(ownedSet.has(id)) ownedSet.delete(id);
+    else ownedSet.add(id);
+  }
+  
   saveState();
   render();
 }
@@ -227,6 +253,7 @@ function render(){
   tbody.innerHTML = "";
   filtered.forEach(b=>{
     const isRead = readSet.has(b.id);
+    const isOwned = ownedSet.has(b.id);
     const tr = document.createElement('tr');
     tr.className = isRead ? 'read' : '';
     tr.innerHTML = `
@@ -234,27 +261,37 @@ function render(){
       <td class="title">${b.title}</td>
       <td class="year">${b.year}</td>
       <td class="rating">${b.rating.toFixed(2)}</td>
-      <td class="done"><div class="checkbox ${isRead ? 'checked' : ''}" data-id="${b.id}" role="checkbox" aria-checked="${isRead}" tabindex="0"></div></td>
+      <td class="owned">
+        <div class="checkbox ${isOwned ? 'checked' : ''}" data-id="${b.id}" data-type="owned" role="checkbox" aria-checked="${isOwned}" tabindex="0"></div>
+      </td>
+      <td class="done">
+        <div class="checkbox ${isRead ? 'checked' : ''}" data-id="${b.id}" data-type="read" role="checkbox" aria-checked="${isRead}" tabindex="0"></div>
+      </td>
     `;
     tbody.appendChild(tr);
   });
 
   if(filtered.length === 0){
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;">Aramayla eşleşen kitap yok.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">Aramayla eşleşen kitap yok.</td></tr>';
   }
 
-  tbody.querySelectorAll('.checkbox').forEach(cb=>{
-    cb.addEventListener('click', ()=>toggleBook(cb.dataset.id));
-    cb.addEventListener('keydown', (e)=>{
-      if(e.key === 'Enter' || e.key === ' '){
-        e.preventDefault();
-        toggleBook(cb.dataset.id);
-      }
-    });
-  });
-
-  document.getElementById('progressText').textContent = `${readSet.size} / ${BOOKS.length} kitap okundu`;
+  document.getElementById('progressText').textContent = `${readSet.size} / ${BOOKS.length} okundu`;
+  document.getElementById('ownedText').textContent = `${ownedSet.size} / ${BOOKS.length} kitaplıkta`;
 }
+
+// Event Delegation - Tüm checkbox tıklamalarını tek yerden yakalama
+document.getElementById('tableBody').addEventListener('click', (e) => {
+  if(e.target.classList.contains('checkbox')){
+    toggleBook(e.target.dataset.id, e.target.dataset.type);
+  }
+});
+
+document.getElementById('tableBody').addEventListener('keydown', (e) => {
+  if(e.target.classList.contains('checkbox') && (e.key === 'Enter' || e.key === ' ')){
+    e.preventDefault();
+    toggleBook(e.target.dataset.id, e.target.dataset.type);
+  }
+});
 
 document.getElementById('searchBox').addEventListener('input', (e)=>{
   query = e.target.value;
@@ -267,6 +304,7 @@ document.getElementById('hideReadBtn').addEventListener('click', (e)=>{
   render();
 });
 
+// Uygulama açıldığında verileri yükle
 loadState();
 </script>
 </body>
