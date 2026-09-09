@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>İTHAKİ BİLİMKURGU KLASİKLERİ</title>
+<style>
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    padding:30px 16px 60px;
+    background:#ffffff;
+    color:#000000;
+    font-family: "Times New Roman", Times, serif;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+
+  h1{
+    font-size:19px;
+    font-weight:bold;
+    text-align:center;
+    margin:0 0 4px;
+    letter-spacing:0.3px;
+  }
+  h2{
+    font-size:14px;
+    font-weight:normal;
+    text-align:center;
+    margin:0 0 20px;
+  }
+
+  .progress{
+    text-align:center;
+    font-size:13px;
+    margin-bottom:18px;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+  }
+  th, td{
+    border:1px solid #000;
+    padding:6px 8px;
+    text-align:left;
+  }
+  th{
+    font-weight:bold;
+    background:#fff;
+  }
+  td.num, th.num{text-align:center; width:34px;}
+  td.year, th.year{text-align:center; width:70px;}
+  td.rating, th.rating{text-align:center; width:70px;}
+  td.done, th.done{text-align:center; width:60px;}
+
+  tr.read td{color:#888;}
+  tr.read td.title{text-decoration:line-through;}
+
+  .checkbox{
+    width:18px;
+    height:18px;
+    border:1px solid #000;
+    margin:0 auto;
+    cursor:pointer;
+    position:relative;
+  }
+  .checkbox.checked::after{
+    content:"✕";
+    position:absolute;
+    left:2px;
+    top:-3px;
+    font-size:14px;
+    font-weight:bold;
+  }
+
+  .controls{
+    margin:14px 0 18px;
+    text-align:center;
+    font-size:13px;
+  }
+  .controls input[type="text"]{
+    font-family:inherit;
+    font-size:13px;
+    padding:2px 0;
+    border:none;
+    border-bottom:1px solid #000;
+    width:200px;
+    margin-right:16px;
+    background:transparent;
+  }
+  .controls input[type="text"]:focus{outline:none;}
+  .controls button{
+    font-family:inherit;
+    font-size:13px;
+    padding:0;
+    border:none;
+    background:none;
+    text-decoration:underline;
+    cursor:pointer;
+    color:#000;
+  }
+  .controls button.active{
+    font-weight:bold;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>İTHAKİ BİLİMKURGU KLASİKLERİ</h1>
+  <h2>Basım Yılına Göre Sıralı Liste (Goodreads Puanları Dahil)</h2>
+
+  <div class="progress" id="progressText">0 / 93 kitap okundu</div>
+
+  <div class="controls">
+    <input type="text" id="searchBox" placeholder="Kitap adına göre ara…">
+    <button id="hideReadBtn">Okunanları Gizle</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="num">Sıra</th>
+        <th>Kitap Adı</th>
+        <th class="year">Basım Yılı</th>
+        <th class="rating">Goodreads Puanı</th>
+        <th class="done">Bitti mi?</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<script>
+const BOOKS = [
+["Cesur Yeni Dünya",2015,3.99],["Çocukluğun Sonu",2015,4.10],["Dune",2015,4.27],
+["Kıyamete Bir Milyar Yıl",2015,3.98],["Maymunlar Gezegeni",2015,3.98],
+["2001: Bir Uzay Destanı",2016,4.17],["Arcturus'a Yolculuk",2016,3.65],["Ben, Robot",2016,4.21],
+["Doktor Moreau'nun Adası",2016,3.76],["Dune Çocukları",2016,3.96],["Dune Mesihi",2016,3.91],
+["Pazartesi Cumartesiden Başlar",2016,4.21],["Sürgün Gezegeni",2016,3.71],["Yıkıma Giden Adam",2016,3.97],
+["Yıldız Gemisi Askerleri",2016,4.02],["Zaman Makinesi",2016,3.89],
+["Anlatış",2017,3.87],["Dune Tanrı İmparatoru",2017,3.89],["Dünyalar Savaşı",2017,3.84],
+["Frankenstein",2017,3.88],["Görünmez Adam",2017,3.68],["Kaplan Kaplan",2017,4.11],
+["Resimli Adam",2017,4.13],["Su Adamı",2017,3.97],["Tanrı Olmak Zor İş",2017,4.14],
+["Bir Mars Destanı",2018,3.81],["Bu Ölümsüz",2018,3.79],["Fahrenheit 451",2018,3.98],
+["İşte İnsan",2018,3.80],["Kadınlar Ülkesi",2018,3.59],["Mars Yıllıkları",2018,4.14],
+["Uzaktan Kumandalı Kız",2018,3.85],["Yaban Diyarlarda Yabancı",2018,3.93],["Yakma Zevki",2018,3.97],
+["İşkencenin Gölgesi",2019,3.82],["Kızıl Mars",2019,3.87],["Kumsalda",2019,3.97],["Yakın",2019,4.26],
+["Ben, Efsane",2020,4.03],["Dune Rahibeler Meclisi",2020,3.92],["Dune Sapkınları",2020,3.92],
+["Kallokain",2020,3.93],["Kent",2020,4.14],["Tanrı'nın Gözündeki Zerre",2020,4.07],
+["1984",2021,4.19],["Alaycı Kuş",2021,4.13],["Geri Giden Saat",2021,3.40],["Hava Adamı Ariel",2021,3.76],
+["Houston, Houston, Duyuyor Musun?",2021,3.88],["İşte Tanrılar",2021,4.11],["Liktorun Kılıcı",2021,4.12],
+["Maymun ve Öz",2021,3.49],["Mevki Uygarlığı",2021,3.82],["Semenderlerle Savaş",2021,4.11],
+["Bir Kadın Astronotun Anıları",2022,3.58],["Callahan Günlükleri",2022,4.29],["Cennetin Çeşmeleri",2022,4.01],
+["Düşyılanı",2022,3.89],["Kara Bulut",2022,3.92],["Koyunlar Yukarı Bakar",2022,3.97],
+["Lilith'in Dölü",2022,4.36],["Stepford Kadınları",2022,3.76],
+["Dinozor Öyküleri",2023,3.66],["Güneşin Altın Elmaları",2023,4.06],["İnsandan Öte",2023,3.97],
+["İnsanlığın Çocukları",2023,3.71],["Mümkünatı Yok",2023,3.86],["Neuromancer",2023,3.91],
+["Şimdi ve Daima",2023,3.79],["Tohumdan Hasada",2023,4.34],["Yol İşaretleri",2023,3.82],
+["2010: İkinci Uzay Destanı",2024,3.92],["Ara İstasyon",2024,3.96],["İçeriden Ölmek",2024,3.93],
+["Melankolinin İlacı",2024,3.85],["Mor Bulut",2024,3.55],["Ölüme Yazgılı Şehir",2024,4.06],
+["Tehlikeli Görüler",2024,4.01],["Yanan Krom",2024,3.97],["Zaman İçinde Bir Yer",2024,4.03],
+["Zanzibar İstifi",2024,4.02],
+["Metropolis",2025,3.79],["Oyunların Oyuncusu",2025,4.26],["Rama'yla Buluşma",2025,4.11],
+["Yüksek Şatodaki Adam",2025,3.77],
+["Aytozu Faciası",2026,3.87],["Beden Kemiricilerin İstilası",2026,3.92],["Kim Var Orada?",2026,4.02],
+["Kıyamet Kitabı",2026,4.04],["Mavi Mars",2026,3.84],["Nemesis",2026,3.82],["Yeşil Mars",2026,3.96],
+["Zamanın Şafağı",2026,4.05]
+].map((b,i)=>({sira:i+1, id:'b'+String(i+1).padStart(3,'0'), title:b[0], year:b[1], rating:b[2]}));
+
+let readSet = new Set();
+let hideRead = false;
+let query = "";
+
+async function loadState(){
+  try{
+    const res = await window.storage.get('ithaki-read-set', false);
+    if(res && res.value){
+      readSet = new Set(JSON.parse(res.value));
+    }
+  }catch(e){ /* henüz kayıt yok */ }
+  render();
+}
+
+async function saveState(){
+  try{
+    await window.storage.set('ithaki-read-set', JSON.stringify([...readSet]), false);
+  }catch(e){ console.error('Kayıt hatası:', e); }
+}
+
+function toggleBook(id){
+  if(readSet.has(id)) readSet.delete(id);
+  else readSet.add(id);
+  saveState();
+  render();
+}
+
+function render(){
+  const tbody = document.getElementById('tableBody');
+  const q = query.trim().toLocaleLowerCase('tr');
+  const filtered = BOOKS.filter(b=>{
+    if(hideRead && readSet.has(b.id)) return false;
+    if(q && !b.title.toLocaleLowerCase('tr').includes(q)) return false;
+    return true;
+  });
+
+  tbody.innerHTML = "";
+  filtered.forEach(b=>{
+    const isRead = readSet.has(b.id);
+    const tr = document.createElement('tr');
+    tr.className = isRead ? 'read' : '';
+    tr.innerHTML = `
+      <td class="num">${b.sira}</td>
+      <td class="title">${b.title}</td>
+      <td class="year">${b.year}</td>
+      <td class="rating">${b.rating.toFixed(2)}</td>
+      <td class="done"><div class="checkbox ${isRead ? 'checked' : ''}" data-id="${b.id}" role="checkbox" aria-checked="${isRead}" tabindex="0"></div></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if(filtered.length === 0){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;">Aramayla eşleşen kitap yok.</td></tr>';
+  }
+
+  tbody.querySelectorAll('.checkbox').forEach(cb=>{
+    cb.addEventListener('click', ()=>toggleBook(cb.dataset.id));
+    cb.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        toggleBook(cb.dataset.id);
+      }
+    });
+  });
+
+  document.getElementById('progressText').textContent = `${readSet.size} / ${BOOKS.length} kitap okundu`;
+}
+
+document.getElementById('searchBox').addEventListener('input', (e)=>{
+  query = e.target.value;
+  render();
+});
+
+document.getElementById('hideReadBtn').addEventListener('click', (e)=>{
+  hideRead = !hideRead;
+  e.target.classList.toggle('active', hideRead);
+  render();
+});
+
+loadState();
+</script>
+</body>
+</html>
